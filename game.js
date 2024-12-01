@@ -41,12 +41,6 @@ var santa = santa_button("santa");
 
 var zoom = 1;
 
-function drawtext(string, font, pos, color = Color.white)
-{
-  var entrymesh = os.make_text_buffer(string, pos, 0, color, -1, font);
-  render._main.geometry(font.texture, entrymesh);
-}
-
 var puzzles = {
   toys: {
     answer:'furby',
@@ -78,12 +72,18 @@ var puzzles = {
   },
 };
 
-var img_dim = {
-  width:100,
-  height:100,
-  anchor_y:0.5,
-  anchor_x:0.5
+for (var puzz in puzzles) {
+  //fill with correct images
+  var p = puzzles[puzz];
+  var scaledsurf = game.texture(puzz).surface.scale([100,100]);
+  p.texture = render._main.load_texture(scaledsurf);
 }
+
+var img_dim = []
+img_dim.width = 100;
+img_dim.height = 100;
+img_dim.anchor_y = 0.5;
+img_dim.anchor_x = 0.5;
 
 var selected_puzz = undefined;
 var hovered_puzz = undefined;
@@ -209,26 +209,25 @@ self.hud = function()
   pos.anchor_y = 0.5;
   hovered_puzz = undefined;
   var alldone = true;
-  drawtext("SECRET SANTA COMPUTER", bigfont, [80,720], Color.red)  
+  render.text("SECRET SANTA COMPUTER", [80,720], bigfont, 0, Color.red)  
   for (var p in puzzles) alldone &&= puzzles[p].done;
   if (alldone) {
-    drawtext("THE SECRET WORD IS", bigfont, center.add([-300,200]), Color.green);
-    drawtext("TOOTHPASTE", bigfont, center.add([-200,100]), Color.red);
+    render.text("THE SECRET WORD IS", center.add([-300,200]), bigfont, 0, Color.green);
+    render.text("TOOTHPASTE", center.add([-200,100]), bigfont, 0, Color.red);
     return;
   }
 
   var userot = startrot;
 
   for (var puzz in puzzles) {
+    var p = puzzles[puzz];
     userot += img_tick;
     
     var dist = 1 + 0.3*Math.cos(4*Math.PI*userot);
     var startvec = vector.rotate([0,1], userot).scale(btn_dist/dist);
-    var renderpos = startvec.add(center.add([0,20]));  
-    var color = Color.white;
-    var rect = {x:renderpos.x,y:renderpos.y};
+    var rect = startvec.add(center.add([0,20]));
     rect.__proto__ = img_dim;
-    
+    var color = Color.white;
 
     if (puzzles[puzz].done)
       color = Color.red;
@@ -242,14 +241,12 @@ self.hud = function()
       drawrect.height += 10;
       render._main.fillrect(drawrect, Color.green);
     }
-    render.image(puzz, rect, 0, color);
-    console.log(json.encode(rect.width))
-    startvec = vector.rotate(startvec, -img_tick);
+    render.image(p, rect, 0, color);
   }
 
   if (selected_puzz) {
     var size = render.text_size("enter code and press return", myfont, 0, 0, -1);
-    drawtext("enter code and press return", myfont, center.sub([size.x/2,100]), Color.green);
+    render.text("enter code and press return", center.sub([size.x/2,100]), myfont, 0, Color.green);
 
     var letterwidth  =40;
     var gap = 20;
@@ -261,19 +258,17 @@ self.hud = function()
     leftrect.height = 70;
     for (var i = 0; i < 5; i++) {
       letter_rectangle(leftrect);
-
       var letter = entry[i];
       letter ??= ""
       var letterpos = [leftrect.x,leftrect.y];
       letterpos.x += 10;
       letterpos.y += 40
-      drawtext(letter, myfont, letterpos, Color.red)
+      render.text(letter,letterpos, myfont, 0, Color.red)
       leftrect.x += gap + letterwidth;      
     }
-    drawtext(submitstate, myfont, center.add([-60,-30]), Color.green);
-  } else {
-    drawtext("SELECT A BOX TO TRY A CODE!", myfont, center.add([-200,30]), Color.white)
-  }
+    render.text(submitstate, center.add([-60,-30]),myfont, 0, Color.green);
+  } else
+    render.text("SELECT A BOX TO TRY A CODE!", center.add([-200,30]), myfont, 0, Color.white)
 
 //  render.image(myfont, [0,0]);
 //  spritebatch = os.make_sprite_mesh(manysprites, spritebatch);
