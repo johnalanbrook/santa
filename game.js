@@ -59,7 +59,7 @@ var puzzles = {
     desc: "What is the maiden name of your wife, Mrs. Claus?",
   },
   stockings: {
-    answer:'7052000000000',
+    answer:'70520000000',
     desc: "How many total presents have we delivered?",
   },
   glasses: {
@@ -67,7 +67,7 @@ var puzzles = {
     desc: "How old are you?",
   },
   map: {
-    answer:'superclaus3000',
+    answer:'claus3000',
     desc: "What is your go-to master password?"
   },
 };
@@ -101,12 +101,8 @@ self.update = function(dt)
   render._main.campos(camera.pos);
   startrot += rotspeed*dt;
 }
-var usefont = 'dos.ttf'
-var myfont = os.make_font(io.slurpbytes(usefont), 32);
-myfont.texture = render._main.load_texture(myfont.surface);
-var bigfont = os.make_font(io.slurpbytes(usefont), 80);
-bigfont.texture = render._main.load_texture(bigfont.surface)
-var textmesh = os.make_text_buffer("grandma got ran over by a reindeer", [100,300], 0, Color.white, -1, myfont);
+var myfont = 'dos.32'
+var bigfont = 'dos.80'
 
 var line = os.make_line_prim([[0,0],[100,100],[0,500],[300,500]], 20, 0);  
 line.color = os.make_color_buffer(Color.white, 10); 
@@ -124,13 +120,6 @@ for (var i = 0; i < 10000; i++)
   manysprites.push({
     dst: {x:Math.random()*1024,y:Math.random()*1024,width:10,height:10},
   });
-
-var spritebatch;
-
-self.draw = function()
-{
-//  render.image(santaimg, {x:300,y:100,anchor_y:0,anchor_x:0,width:100,height:100});
-}
 
 var entry = "";
 
@@ -151,8 +140,10 @@ function checksubmit() {
     puzz.done = true;
     selected_puzz = undefined;
   }
-  else
+  else {
+    self.delay(_ => submitstate = "", 1)
     submitstate = "TRY AGAIN!";
+  }
 
   entry = "";  
 }
@@ -172,12 +163,14 @@ self.hud = function()
         entry = ""
         break;
       case "text":
-        if (entry.length >= 5) break;
-        entry += e.text;
+        var letters = puzzles[selected_puzz].answer.length;      
+        if (entry.length >= letters) break;
+        entry += e.text.toLowerCase();
         break;
       case "key":
-        if (e.scancode == 42) entry.length--;
-        if (e.scancode == 76) entry.length--;
+        if (!e.down) return;
+        if (e.scancode == 42) entry = entry.substring(0, entry.length-1)
+        if (e.scancode == 76) entry = entry.substring(0, entry.length-1)
         if (e.scancode == 40) checksubmit();
         if (e.scancode == 30) {
           for (var p in puzzles) puzzles[p].done = true
@@ -209,13 +202,20 @@ self.hud = function()
   pos.anchor_y = 0.5;
   hovered_puzz = undefined;
   var alldone = true;
-  render.text("SECRET SANTA COMPUTER", [80,720], bigfont, 0, Color.red)  
+  layout.draw_commands(clay.draw(camera.size, _ => {
+    clay.text("SECRET SANTA COMPUTER", {font:'dos.80', color:Color.red, background_color:Color.white, padding:10, offset:[0,320]})
+}));
   for (var p in puzzles) alldone &&= puzzles[p].done;
   if (alldone) {
-    render.text("THE SECRET WORD IS", center.add([-300,200]), bigfont, 0, Color.green);
-    render.text("TOOTHPASTE", center.add([-200,100]), bigfont, 0, Color.red);
-    return;
-  }
+    layout.draw_commands(clay.draw(camera.size, _ => {
+      clay.vstack({}, _ => {
+      clay.text("THE SECRET WORD IS", {font:'dos.80', color:Color.red, background_color:Color.green})
+      clay.text("", {font:'dos.80', color:Color.red, background_color:Color.green})
+      clay.text("TOOTHPASTE", {font:'dos.80', color:Color.green, background_color:Color.red})
+      })
+  }));
+  return;
+ }
 
   var userot = startrot;
 
@@ -246,40 +246,38 @@ self.hud = function()
 
   if (selected_puzz) {
     var size = render.text_size("enter code and press return", myfont, 0, 0, -1);
-    render.text("enter code and press return", center.sub([size.x/2,100]), myfont, 0, Color.green);
+    layout.draw_commands(clay.draw(camera.size, _ => {
+      clay.text("enter code and press return", {font:myfont, color:Color.red, background_color:Color.green});
+    }))
+    
+    var letters = puzzles[selected_puzz].answer.length;
 
-    var letterwidth  =40;
+    var letterwidth = 40;
     var gap = 20;
-    var totalwidth = letterwidth*5 + gap*4;
+    var totalwidth = letterwidth*letters + gap*(letters-1);
     var leftrect = {};
     leftrect.x = center.x - totalwidth/2
     leftrect.y = center.y;
     leftrect.width = letterwidth;
     leftrect.height = 70;
-    for (var i = 0; i < 5; i++) {
+    for (var i = 0; i < letters; i++) {
       letter_rectangle(leftrect);
       var letter = entry[i];
       letter ??= ""
       var letterpos = [leftrect.x,leftrect.y];
       letterpos.x += 10;
-      letterpos.y += 40
+      letterpos.y += 23
       render.text(letter,letterpos, myfont, 0, Color.red)
       leftrect.x += gap + letterwidth;      
     }
     render.text(submitstate, center.add([-60,-30]),myfont, 0, Color.green);
+    
+    layout.draw_commands(clay.draw(camera.size, _ => {
+      clay.text(puzzles[selected_puzz].desc, {font:myfont, color:Color.green, background_color:Color.red, offset:[0,-150]});
+    }))
+
   } else
-    render.text("SELECT A BOX TO TRY A CODE!", center.add([-200,30]), myfont, 0, Color.white)
-
-//  render.image(myfont, [0,0]);
-//  spritebatch = os.make_sprite_mesh(manysprites, spritebatch);
-//  render._main.geometry(game.texture("santa").texture, spritebatch);
-
-//  render._main.geometry(game.texture("santa").texture, line);
-//  var textmesh = os.make_text_buffer("King santa is here", [350,100], 0, Color.white, -1, myfont);
-/*  render._main.fasttext(mousepos.map(Math.round), screenpos, Color.white);
-  render._main.fasttext(screenpos.map(Math.round), screenpos.sub([0,10]), Color.yellow)
-  render._main.fasttext(viewpos, screenpos.sub([0,20]), Color.purple)
-  render._main.fasttext(hudpos.map(Math.round), screenpos.sub([0,30]), Color.green)
-*/
+    layout.draw_commands(clay.draw(camera.size, _ => {
+      clay.text("SELECT A BOX TO TRY A CODE!", {font:myfont, color:Color.green, background_color:Color.red});
+    }))
 }
-console.log("MADE GAME");
