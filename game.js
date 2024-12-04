@@ -5,6 +5,7 @@ function reset()
 {
   entry = "";
   for (var p in puzzles) puzzles[p].done = undefined;
+  lastfound = false;
 }
 
 var camera = {};
@@ -12,13 +13,45 @@ camera.pos = [0,0]; // cameras are in world coordinates
 camera.size = [1024,758]; // size the camera sees in world units
 camera.zoom = 1;
 var center = camera.size.scale(0.5);
+var merry = false
+
+self.delay(_ => {
+  merry = !merry;
+  return 0.3;
+}, 0.3);
+var merrycolor = [0,1,0,merry]
+
+/*var bjork = io.slurpbytes("bjork.mpg");
+var bvideo = os.make_video(bjork);
+
+bvideo.callback = function(surf)
+{
+  bvideo.texture = render._main.load_texture(surf);
+}
+*/
+
+var bgfill = [1,0,0,1];
+
+var santagif = io.slurpbytes("santa.gif")
+santagif = os.make_gif(santagif);
+for (var frame of santagif.frames)
+  frame.texture = render._main.load_texture(frame.surface);
+
+var santaframe = 0;
+
+self.delay(_ => {
+  santaframe++;
+  santaframe %= santagif.frames.length;
+  return santagif.frames[santaframe].time;
+}, 0);
 
 center = center.sub([0,100])
 render._main.logical_size(camera.size);
 
 var cams = game.cameras();
-console.log(cams)
-var webcam = game.open_camera(cams[0])
+var webcam;
+if (cams)
+  webcam = game.open_camera(cams[0])
 function santa_button(img)
 {
   return clay.draw([0,0], _ => {
@@ -92,8 +125,7 @@ img_dim.anchor_x = 0.5;
 
 var selected_puzz = undefined;
 var hovered_puzz = undefined;
-//render._main.viewport({x:0,y:0,height:1,width:1})
-render._main.viewport()
+render.viewport()
 var rotspeed = 0.01;
 self.update = function(dt)
 {
@@ -106,6 +138,7 @@ self.update = function(dt)
   render._main.campos(camera.pos);
   startrot += rotspeed*dt;
 }
+
 var myfont = 'dos.32'
 var bigfont = 'dos.80'
 
@@ -132,10 +165,6 @@ for (var i = 0; i < 10000; i++)
   });
 
 var entry = "";
-
-var letter_rectangle = function(rect, letter) {
-  render._main.fillrect(rect, Color.white)
-}
 
 var submitstate = ""
 
@@ -186,8 +215,13 @@ self.hud = function()
         if (e.scancode == 42) entry = entry.substring(0, entry.length-1)
         if (e.scancode == 76) entry = entry.substring(0, entry.length-1)
         if (e.scancode == 40) checksubmit();
-        if (e.scancode == 30) {
+        if (e.scancode == 30)
           for (var p in puzzles) puzzles[p].done = true
+        if (e.scancode == 31) {
+          lastfound = true;
+          tween(0,1,1, x => {
+            bgfill.a = x;
+          })
         }
         if (e.scancode == 63) reset();
         break;
@@ -204,11 +238,7 @@ self.hud = function()
   viewpos.x /= camera.size.x;
   viewpos.y /= camera.size.y;
   
-//  mousepos.y *= -1;
-//  mousepos.y += camera.size.y;
-  render._main.tile(tiletex, geometry.rect_move(bg_rect,bg_offset), undefined, 1);
-//  render.image(santaimg, {x:center.x, y:center.y,anchor_y:0.5,anchor_x:0.5,width:20,height:20});
-//  render._main.texture(santaimg.texture, {x:center.x,y:center.y,anchor_y:1,anchor_x:0.5,width:30,height:30}, undefined, Color.red);
+  render.tile(tiletex, geometry.rect_move(bg_rect,bg_offset), undefined, 1);
   
   var idx = 0;
   var pos = center.add(startvec);
@@ -221,15 +251,9 @@ self.hud = function()
 }));
   for (var p in puzzles) alldone &&= puzzles[p].done;
   if (alldone) {
-    layout.draw_commands(clay.draw(camera.size, _ => {
-      clay.vstack({}, _ => {
-      clay.text("THE SECRET WORD IS", bigstyle, redfont);
-      clay.text("", bigstyle);
-      clay.text("TOOTHPASTE", bigstyle, greenfont);
-      })
-  }));
-  return;
- }
+    render_camera();
+    return;
+  }
 
   var userot = startrot;
 
@@ -253,7 +277,7 @@ self.hud = function()
       var drawrect = geometry.rect_move(rect, [-5,-5]);
       drawrect.width += 10;
       drawrect.height += 10;
-      render._main.fillrect(drawrect, Color.green);
+      render.rectangle(drawrect, Color.green);
     }
     render.image(p, rect, 0, color);
   }
@@ -275,7 +299,7 @@ self.hud = function()
     leftrect.width = letterwidth;
     leftrect.height = 70;
     for (var i = 0; i < letters; i++) {
-      letter_rectangle(leftrect);
+      render.rectangle(leftrect, Color.white)
       var letter = entry[i];
       letter ??= ""
       var letterpos = [leftrect.x,leftrect.y];
@@ -295,7 +319,12 @@ self.hud = function()
       clay.text("SELECT A BOX TO TRY A CODE!", smallstyle,greenfont);
     }))
 
-  if (camgpu) {
+
+}
+
+function render_camera()
+{
+  if (camgpu)
   layout.draw_commands(clay.draw(camera.size, _ => {
     clay.image(camgpu);
   }));
@@ -306,14 +335,19 @@ self.hud = function()
   layout.draw_commands(clay.draw(camera.size, _ => {
     clay.text("PLEASE SHOW PROPER ID", bigstyle,{offset:[0,-320]},redfont);
   }));
-  }
+  
 
   if (lastfound) {
+    render.rectangle({x:0,y:0,width:camera.size.x, height:camera.size.y},bgfill)
     layout.draw_commands(clay.draw(camera.size, _ => {
       clay.vstack({}, _ => {
-      clay.text("VALID ID SHOWN, PLEASE BE WAITING FOR THE NEXT INSTRUCTIONS", {font:bigfont, size:[600,0]});
-      clay.image(detect);
-      clay.text(codeunlock, bigstyle, greenfont, {size:[camera.size.x,0]});
+      clay.text("VALID ID SHOWN!!", {font:bigfont});
+      clay.text("THE CODE IS 19435!", {font:bigfont});
+      clay.text("MERRY CHRISTMAS!", {font:bigfont, color:merrycolor})      
+
+      clay.image(santagif.frames[santaframe], {x:0,y:0,width:200,height:200});
+      merrycolor.a = merry ? 1 : 0
+
      });
     }));
   }
@@ -332,7 +366,9 @@ self.hud = function()
   }
 
   webcam.release_frame(camsurf)
+
 }
+
 var camsurfs = [];
 var camgpu;
 var lastfound = false;
