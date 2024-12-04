@@ -12,8 +12,13 @@ camera.pos = [0,0]; // cameras are in world coordinates
 camera.size = [1024,758]; // size the camera sees in world units
 camera.zoom = 1;
 var center = camera.size.scale(0.5);
+
 center = center.sub([0,100])
 render._main.logical_size(camera.size);
+
+var cams = game.cameras();
+console.log(cams)
+var webcam = game.open_camera(cams[0])
 function santa_button(img)
 {
   return clay.draw([0,0], _ => {
@@ -104,6 +109,11 @@ self.update = function(dt)
 var myfont = 'dos.32'
 var bigfont = 'dos.80'
 
+var redfont = {color:Color.red, background_color:Color.green};
+var greenfont = {color:Color.green, background_color:Color.red};
+var smallstyle = {font:myfont}
+var bigstyle = {font:bigfont}
+
 var line = os.make_line_prim([[0,0],[100,100],[0,500],[300,500]], 20, 0);  
 line.color = os.make_color_buffer(Color.white, 10); 
 
@@ -148,10 +158,14 @@ function checksubmit() {
   entry = "";  
 }
 
+var approved_cam = false;
 self.hud = function()
 {
   game.engine_input(e => {
     switch(e.type) {
+      case "camera approved":
+         approved_cam = true;
+         break;
       case "quit":
         os.exit(0);
         break;
@@ -203,15 +217,15 @@ self.hud = function()
   hovered_puzz = undefined;
   var alldone = true;
   layout.draw_commands(clay.draw(camera.size, _ => {
-    clay.text("SECRET SANTA COMPUTER", {font:'dos.80', color:Color.red, background_color:Color.white, padding:10, offset:[0,320]})
+    clay.text("SECRET SANTA COMPUTER", {font:bigfont, color:Color.red, background_color:Color.white, padding:10, offset:[0,320]})
 }));
   for (var p in puzzles) alldone &&= puzzles[p].done;
   if (alldone) {
     layout.draw_commands(clay.draw(camera.size, _ => {
       clay.vstack({}, _ => {
-      clay.text("THE SECRET WORD IS", {font:'dos.80', color:Color.red, background_color:Color.green})
-      clay.text("", {font:'dos.80', color:Color.red, background_color:Color.green})
-      clay.text("TOOTHPASTE", {font:'dos.80', color:Color.green, background_color:Color.red})
+      clay.text("THE SECRET WORD IS", bigstyle, redfont);
+      clay.text("", bigstyle);
+      clay.text("TOOTHPASTE", bigstyle, greenfont);
       })
   }));
   return;
@@ -247,7 +261,7 @@ self.hud = function()
   if (selected_puzz) {
     var size = render.text_size("enter code and press return", myfont, 0, 0, -1);
     layout.draw_commands(clay.draw(camera.size, _ => {
-      clay.text("enter code and press return", {font:myfont, color:Color.red, background_color:Color.green});
+      clay.text("enter code and press return", smallstyle);
     }))
     
     var letters = puzzles[selected_puzz].answer.length;
@@ -273,11 +287,59 @@ self.hud = function()
     render.text(submitstate, center.add([-60,-30]),myfont, 0, Color.green);
     
     layout.draw_commands(clay.draw(camera.size, _ => {
-      clay.text(puzzles[selected_puzz].desc, {font:myfont, color:Color.green, background_color:Color.red, offset:[0,-150]});
+      clay.text(puzzles[selected_puzz].desc, smallstyle, greenfont,{ offset:[0,-150]});
     }))
 
   } else
     layout.draw_commands(clay.draw(camera.size, _ => {
-      clay.text("SELECT A BOX TO TRY A CODE!", {font:myfont, color:Color.green, background_color:Color.red});
+      clay.text("SELECT A BOX TO TRY A CODE!", smallstyle,greenfont);
     }))
+
+  if (camgpu) {
+  layout.draw_commands(clay.draw(camera.size, _ => {
+    clay.image(camgpu);
+  }));
+
+  layout.draw_commands(clay.draw(camera.size, _ => {
+    clay.image('border', {size:[800,640]});
+  }));
+  layout.draw_commands(clay.draw(camera.size, _ => {
+    clay.text("PLEASE SHOW PROPER ID", bigstyle,{offset:[0,-320]},redfont);
+  }));
+  }
+
+  if (lastfound) {
+    layout.draw_commands(clay.draw(camera.size, _ => {
+      clay.vstack({}, _ => {
+      clay.text("VALID ID SHOWN, PLEASE BE WAITING FOR THE NEXT INSTRUCTIONS", {font:bigfont, size:[600,0]});
+      clay.image(detect);
+      clay.text(codeunlock, bigstyle, greenfont, {size:[camera.size.x,0]});
+     });
+    }));
+  }
+
+  if (!approved_cam) return;
+  var camsurf = webcam.frame();
+  if (!camsurf)
+    return;
+ 
+  camsurfs.push(camsurf)
+  var cc = camsurf.dup();
+  if (!lastfound) lastfound = os.match_img(cc, detect.surface, 20);
+  camgpu = {
+    texture: render._main.load_texture(cc),
+    surface: cc
+  }
+
+  webcam.release_frame(camsurf)
 }
+var camsurfs = [];
+var camgpu;
+var lastfound = false;
+var detect = game.texture('find');
+var codeunlock = "STAND BY FOR CODE UNLOCK";
+var ptime = 0.1;
+self.delay(_ => {
+  if (lastfound) codeunlock += " .";
+  return ptime;
+}, ptime);
