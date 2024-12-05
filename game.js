@@ -8,6 +8,14 @@ function reset()
   lastfound = false;
 }
 
+function accept_match()
+{
+  lastfound = true;
+  tween(0,1,1, x => {
+    bgfill.a = x;
+  })
+}
+
 var camera = {};
 camera.pos = [0,0]; // cameras are in world coordinates
 camera.size = [1024,758]; // size the camera sees in world units
@@ -19,7 +27,8 @@ self.delay(_ => {
   merry = !merry;
   return 0.3;
 }, 0.3);
-var merrycolor = [0,1,0,merry]
+var merrycolor = Object.create(Color.green);
+merrycolor[3] = merry;
 
 /*var bjork = io.slurpbytes("bjork.mpg");
 var bvideo = os.make_video(bjork);
@@ -30,7 +39,8 @@ bvideo.callback = function(surf)
 }
 */
 
-var bgfill = [1,0,0,1];
+var bgfill = Object.create(Color.red);
+bgfill[3] = 0;
 
 var santagif = io.slurpbytes("santa.gif")
 santagif = os.make_gif(santagif);
@@ -89,7 +99,7 @@ var puzzles = {
     desc:"Who is your enemy #1?"
   },
   reindeer: {
-    answer:'633275',
+    answer:'639845',
     desc: "How many days has it been since the last accident?",
   },
   bellows: {
@@ -97,7 +107,7 @@ var puzzles = {
     desc: "What is the maiden name of your wife, Mrs. Claus?",
   },
   stockings: {
-    answer:'70520000000',
+    answer:'7052000000000',
     desc: "How many total presents have we delivered?",
   },
   glasses: {
@@ -105,7 +115,7 @@ var puzzles = {
     desc: "How old are you?",
   },
   map: {
-    answer:'claus3000',
+    answer:'supersanta3000',
     desc: "What is your go-to master password?"
   },
 };
@@ -142,6 +152,8 @@ self.update = function(dt)
 var myfont = 'dos.32'
 var bigfont = 'dos.80'
 
+var donecolor = [0.5,0.5,0.5,1]
+
 var redfont = {color:Color.red, background_color:Color.green};
 var greenfont = {color:Color.green, background_color:Color.red};
 var smallstyle = {font:myfont}
@@ -156,13 +168,6 @@ var tiletex = render._main.load_texture(tileimg);
 var bg_offset = [0,0];
 var bg_speed = 30;
 var bg_rect = {x:0,y:0,width:2000,height:2000};
-
-var manysprites = [];
-var wholesrc = {x:0,y:0,width:1,height:1};
-for (var i = 0; i < 10000; i++)
-  manysprites.push({
-    dst: {x:Math.random()*1024,y:Math.random()*1024,width:10,height:10},
-  });
 
 var entry = "";
 
@@ -268,7 +273,7 @@ self.hud = function()
     var color = Color.white;
 
     if (puzzles[puzz].done)
-      color = Color.red;
+      color = donecolor;
     else if (geometry.rect_point_inside(rect,screenpos)) {
       color = Color.green;
       hovered_puzz = puzz;
@@ -280,6 +285,7 @@ self.hud = function()
       render.rectangle(drawrect, Color.green);
     }
     render.image(p, rect, 0, color);
+    if (puzzles[puzz].done) render.image('check', rect, 0, Color.green)
   }
 
   if (selected_puzz) {
@@ -318,31 +324,29 @@ self.hud = function()
     layout.draw_commands(clay.draw(camera.size, _ => {
       clay.text("SELECT A BOX TO TRY A CODE!", smallstyle,greenfont);
     }))
-
-
 }
 
 function render_camera()
 {
   if (camgpu)
   layout.draw_commands(clay.draw(camera.size, _ => {
-    clay.image(camgpu);
+    clay.image(camgpu, {size:[640,480]});
   }));
 
   layout.draw_commands(clay.draw(camera.size, _ => {
     clay.image('border', {size:[800,640]});
   }));
-  layout.draw_commands(clay.draw(camera.size, _ => {
-    clay.text("PLEASE SHOW PROPER ID", bigstyle,{offset:[0,-320]},redfont);
-  }));
   
+  layout.draw_commands(clay.draw(camera.size, _ => {
+    clay.text("PLEASE SHOW PRESET KEY", bigstyle,{offset:[0,-320]},redfont);
+  }));
 
   if (lastfound) {
     render.rectangle({x:0,y:0,width:camera.size.x, height:camera.size.y},bgfill)
     layout.draw_commands(clay.draw(camera.size, _ => {
       clay.vstack({}, _ => {
       clay.text("VALID ID SHOWN!!", {font:bigfont});
-      clay.text("THE CODE IS 19435!", {font:bigfont});
+      clay.text("THE CODE IS 9941!", {font:bigfont});
       clay.text("MERRY CHRISTMAS!", {font:bigfont, color:merrycolor})      
 
       clay.image(santagif.frames[santaframe], {x:0,y:0,width:200,height:200});
@@ -359,23 +363,18 @@ function render_camera()
  
   camsurfs.push(camsurf)
   var cc = camsurf.dup();
-  if (!lastfound) lastfound = os.match_img(cc, detect.surface, 20);
+  if (!lastfound)
+    if (os.match_img(cc, detect.surface, 15)) accept_match();
+    
   camgpu = {
     texture: render._main.load_texture(cc),
     surface: cc
   }
 
   webcam.release_frame(camsurf)
-
 }
 
 var camsurfs = [];
 var camgpu;
 var lastfound = false;
-var detect = game.texture('find');
-var codeunlock = "STAND BY FOR CODE UNLOCK";
-var ptime = 0.1;
-self.delay(_ => {
-  if (lastfound) codeunlock += " .";
-  return ptime;
-}, ptime);
+var detect = game.texture('find.jpg');
