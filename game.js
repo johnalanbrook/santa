@@ -137,8 +137,10 @@ var selected_puzz = undefined;
 var hovered_puzz = undefined;
 render.viewport()
 var rotspeed = 0.01;
+var mdt = 0;
 self.update = function(dt)
 {
+  mdt = dt;
   bg_offset = bg_offset.add([1,1].scale(-dt*bg_speed));
   if (bg_offset.x < -tiletex.width)
     bg_offset = bg_offset.add([tiletex.width,tiletex.width]);
@@ -222,12 +224,8 @@ self.hud = function()
         if (e.scancode == 40) checksubmit();
         if (e.scancode == 30)
           for (var p in puzzles) puzzles[p].done = true
-        if (e.scancode == 31) {
-          lastfound = true;
-          tween(0,1,1, x => {
-            bgfill.a = x;
-          })
-        }
+        if (e.scancode == 31)
+          accept_match();
         if (e.scancode == 63) reset();
         break;
     }
@@ -338,20 +336,19 @@ function render_camera()
   }));
   
   layout.draw_commands(clay.draw(camera.size, _ => {
-    clay.text("PLEASE SHOW PRESET KEY", bigstyle,{offset:[0,-320]},redfont);
+    clay.text("PLEASE SHOW PRESET KEY", bigstyle,{offset:[0,-2610]},redfont);
   }));
 
   if (lastfound) {
     render.rectangle({x:0,y:0,width:camera.size.x, height:camera.size.y},bgfill)
     layout.draw_commands(clay.draw(camera.size, _ => {
       clay.vstack({}, _ => {
-      clay.text("VALID ID SHOWN!!", {font:bigfont});
+      clay.text("VALID KEY SHOWN!!", {font:bigfont});
       clay.text("THE CODE IS 9941!", {font:bigfont});
       clay.text("MERRY CHRISTMAS!", {font:bigfont, color:merrycolor})      
 
       clay.image(santagif.frames[santaframe], {x:0,y:0,width:200,height:200});
       merrycolor.a = merry ? 1 : 0
-
      });
     }));
   }
@@ -363,8 +360,24 @@ function render_camera()
  
   camsurfs.push(camsurf)
   var cc = camsurf.dup();
-  if (!lastfound)
-    if (os.match_img(cc, detect.surface, 15)) accept_match();
+  if (!lastfound) {
+    var n = os.match_img(cc,detect.surface);
+    found_smooth = found_alpha * n + (1-found_alpha)*found_smooth;
+    var close = found_smooth/found_target;
+    if (close > 1) close = 1;
+    render.text("SIMILARITY", [100,20], bigfont, 0, Color.green);
+    render.text((close*100).toFixed(2) + "%", [600,20],bigfont, 0, Color.green)
+    if (close == 1) {
+      found_timer += mdt;
+      render.text("HOLD IT!", [350,500], bigfont, 0, Color.green);
+    }
+    else 
+      found_timer -= mdt;
+      
+    found_timer = found_timer.clamp(0,found_time);
+    if (found_timer == found_time)
+      accept_match();
+  }
     
   camgpu = {
     texture: render._main.load_texture(cc),
@@ -373,6 +386,13 @@ function render_camera()
 
   webcam.release_frame(camsurf)
 }
+
+var found_alpha = 0.1;
+var found_smooth = 1;
+var found_target = 2;
+
+var found_time = 3;
+var found_timer = 0;
 
 var camsurfs = [];
 var camgpu;
